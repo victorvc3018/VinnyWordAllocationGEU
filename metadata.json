@@ -1,0 +1,5 @@
+
+{
+  "name": "Word Allocation Board",
+  "description": "A web application for students and Class Representatives (CRs) to select words from categorized lists. CRs have administrative privileges to manage the words and assignments."
+}
