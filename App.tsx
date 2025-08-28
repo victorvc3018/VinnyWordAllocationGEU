@@ -1,5 +1,5 @@
 
-import React, { useState, useCallback } from 'react';
+import { useCallback } from 'react';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import { User, Word } from './types';
 import { generateInitialWords } from './services/wordService';
