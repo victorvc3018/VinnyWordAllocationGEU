@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Word, User, Role, Category } from '../types';
 import { CATEGORIES } from '../constants';
-import { STUDENT_LIST, StudentRecord } from '../studentData';
+import { STUDENT_LIST } from '../studentData';
 import WordCard from './WordCard';
 
 interface WordDashboardProps {
