@@ -24,6 +24,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
   
   const [crName, setCrName] = useState('');
   const [crStudentId, setCrStudentId] = useState('');
+  const [crRollNo, setCrRollNo] = useState('');
   const [crPassword, setCrPassword] = useState('');
   
   const [error, setError] = useState('');
@@ -51,8 +52,8 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
       return;
     }
 
-    // Validation logic
-    if (trimmedName.toLowerCase() !== 'vinamra') {
+    // Validation logic: Skip name check only for roll number 67
+    if (trimmedRollNo !== '67') {
         const studentExists = STUDENT_LIST.some(
             student => student.rollNo.toString() === trimmedRollNo && student.name.toLowerCase() === trimmedName.toLowerCase()
         );
@@ -72,18 +73,30 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
   const handleCrLogin = (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    if (!crName.trim() || !crStudentId.trim() || !crPassword.trim()) {
+    const trimmedCrName = crName.trim();
+    const trimmedCrStudentId = crStudentId.trim();
+    const trimmedCrRollNo = crRollNo.trim();
+    const trimmedCrPassword = crPassword.trim();
+
+    if (!trimmedCrName || !trimmedCrStudentId || !trimmedCrPassword || !trimmedCrRollNo) {
       setError('All CR fields are required.');
       return;
     }
-    if (crPassword !== getTodaysPassword()) {
+    if (trimmedCrPassword !== getTodaysPassword()) {
       setError('Incorrect password.');
       return;
     }
     
-    const crRollNo = STUDENT_LIST.find(s => s.name.toLowerCase() === crName.trim().toLowerCase())?.rollNo || 'N/A';
+    const crExists = STUDENT_LIST.some(
+        student => student.rollNo.toString() === trimmedCrRollNo && student.name.toLowerCase() === trimmedCrName.toLowerCase()
+    );
 
-    const user: User = { id: crStudentId.trim(), name: crName.trim(), rollNo: crRollNo, role: Role.CR };
+    if (!crExists) {
+        setError('Invalid CR Name or Roll Number. Please check the class list.');
+        return;
+    }
+
+    const user: User = { id: trimmedCrStudentId, name: trimmedCrName, rollNo: trimmedCrRollNo, role: Role.CR };
     onLogin(user);
   };
   
@@ -168,6 +181,16 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
                   id="crStudentId"
                   value={crStudentId}
                   onChange={(e) => setCrStudentId(e.target.value)}
+                  className={commonInputClasses}
+                />
+              </div>
+              <div>
+                <label htmlFor="crRollNo" className="block mb-2 text-sm font-medium text-gray-300">Roll Number</label>
+                <input
+                  type="text"
+                  id="crRollNo"
+                  value={crRollNo}
+                  onChange={(e) => setCrRollNo(e.target.value)}
                   className={commonInputClasses}
                 />
               </div>
