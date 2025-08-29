@@ -1,7 +1,7 @@
-import { Word, Category } from '../types';
-import { CATEGORIES } from '../constants';
+import { Word } from '../types';
+import { INITIAL_CATEGORIES } from '../constants';
 
-const wordsData: Record<Category, string[]> = {
+const wordsData: Record<string, string[]> = {
   Politics: [
     'Democracy', 'Republic', 'Election', 'Legislation', 'Constitution',
     'Diplomacy', 'Sovereignty', 'Federalism', 'Bureaucracy', 'Ideology',
@@ -35,7 +35,7 @@ const wordsData: Record<Category, string[]> = {
 export const generateInitialWords = (): Word[] => {
   let idCounter = 1;
   const words: Word[] = [];
-  CATEGORIES.forEach(category => {
+  INITIAL_CATEGORIES.forEach(category => {
     wordsData[category].forEach(wordText => {
       words.push({
         id: idCounter++,
