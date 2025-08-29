@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Word, User, Role, Category } from '../types';
 import { CATEGORIES } from '../constants';
+import { STUDENT_LIST, StudentRecord } from '../studentData';
 import WordCard from './WordCard';
 
 interface WordDashboardProps {
@@ -16,15 +17,23 @@ const PlusIcon: React.FC<{className?: string}> = ({ className }) => (
   </svg>
 );
 
-const BaseModal: React.FC<{ title: string; children: React.ReactNode; onClose: () => void }> = ({ title, children, onClose }) => {
+const UsersIcon: React.FC<{className?: string}> = ({ className }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M15 21a6 6 0 00-9-5.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-3-5.197m-3 0a4 4 0 115.196 0M15 21a6 6 0 01-9-5.197" />
+    </svg>
+);
+
+
+const BaseModal: React.FC<{ title: string; children: React.ReactNode; onClose: () => void, size?: 'md' | 'lg' }> = ({ title, children, onClose, size = 'md' }) => {
+    const maxWidthClass = size === 'lg' ? 'max-w-lg' : 'max-w-md';
     return (
         <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
-            <div className="bg-gray-800 rounded-lg shadow-xl w-full max-w-md max-h-full overflow-y-auto">
+            <div className={`bg-gray-800 rounded-lg shadow-xl w-full ${maxWidthClass} max-h-full flex flex-col`}>
                 <div className="flex justify-between items-center p-4 border-b border-gray-700 sticky top-0 bg-gray-800">
                     <h3 className="text-lg sm:text-xl font-bold text-indigo-400">{title}</h3>
                     <button onClick={onClose} className="text-gray-400 hover:text-white text-2xl leading-none">&times;</button>
                 </div>
-                <div className="p-4 sm:p-6">{children}</div>
+                <div className="p-4 sm:p-6 overflow-y-auto">{children}</div>
             </div>
         </div>
     );
@@ -33,7 +42,7 @@ const BaseModal: React.FC<{ title: string; children: React.ReactNode; onClose: (
 
 // --- Main Dashboard Component ---
 const WordDashboard: React.FC<WordDashboardProps> = ({ currentUser, words, onWordsUpdate }) => {
-  const [modalState, setModalState] = useState<{ type: 'add' | 'cr-manage'; data: any } | null>(null);
+  const [modalState, setModalState] = useState<{ type: 'add' | 'cr-manage' | 'unassigned'; data: any } | null>(null);
 
   const wordsByCategory = useMemo(() => {
     return words.reduce((acc, word) => {
@@ -62,7 +71,7 @@ const WordDashboard: React.FC<WordDashboardProps> = ({ currentUser, words, onWor
     if (!word.takenBy || word.id !== currentUserWord?.id) {
         const newWordIndex = newWords.findIndex(w => w.id === word.id);
         if (newWordIndex !== -1 && !newWords[newWordIndex].takenBy) {
-            newWords[newWordIndex] = { ...newWords[newWordIndex], takenBy: { id: currentUser.id, name: currentUser.name }};
+            newWords[newWordIndex] = { ...newWords[newWordIndex], takenBy: { id: currentUser.id, name: currentUser.name, rollNo: currentUser.rollNo }};
         }
     }
     onWordsUpdate(newWords);
@@ -71,8 +80,6 @@ const WordDashboard: React.FC<WordDashboardProps> = ({ currentUser, words, onWor
   const handleSaveChanges = (updatedWord: Word) => {
     const newWords = words.map(w => w.id === updatedWord.id ? updatedWord : w);
     onWordsUpdate(newWords);
-    // Do not close modal, so CR can perform other actions
-    // Re-render will pass the updated word to the modal
     const currentModalData = modalState?.data;
     if (currentModalData && currentModalData.id === updatedWord.id) {
         setModalState({ ...modalState, data: updatedWord });
@@ -82,7 +89,7 @@ const WordDashboard: React.FC<WordDashboardProps> = ({ currentUser, words, onWor
   const handleAddWord = (text: string, category: Category) => {
     if (!text.trim()) return;
     const newWord: Word = {
-      id: Date.now(), // simple unique id
+      id: Date.now(),
       text: text.trim(),
       category,
     };
@@ -96,15 +103,13 @@ const WordDashboard: React.FC<WordDashboardProps> = ({ currentUser, words, onWor
     setModalState(null);
   };
 
-  const handleAssignWord = (wordId: number, studentId: string, studentName: string) => {
-      if (!studentId.trim() || !studentName.trim()) return;
+  const handleAssignWord = (wordId: number, studentId: string, studentName: string, studentRollNo: string) => {
+      if (!studentId.trim() || !studentName.trim() || !studentRollNo.trim()) return;
       const newWords = words.map(w => {
-          // Free up word from previous owner if they are assigned a new one
           if (w.takenBy?.id === studentId.trim()) return {...w, takenBy: undefined};
           return w;
       }).map(w => {
-          // Assign the new word
-          if (w.id === wordId) return {...w, takenBy: {id: studentId.trim(), name: studentName.trim()}};
+          if (w.id === wordId) return {...w, takenBy: {id: studentId.trim(), name: studentName.trim(), rollNo: studentRollNo.trim()}};
           return w;
       });
 
@@ -114,6 +119,15 @@ const WordDashboard: React.FC<WordDashboardProps> = ({ currentUser, words, onWor
 
   return (
     <div>
+      <div className="flex justify-end mb-8">
+        {currentUser.role === Role.CR && (
+            <button onClick={() => setModalState({ type: 'unassigned', data: null })} className="flex items-center space-x-2 px-3 py-2 sm:px-4 sm:py-2 bg-teal-600 text-white font-semibold rounded-md hover:bg-teal-700 transition-colors w-full sm:w-auto justify-center">
+                <UsersIcon className="w-5 h-5" />
+                <span>See Unassigned Students</span>
+            </button>
+        )}
+      </div>
+
       {CATEGORIES.map(category => (
         <div key={category} className="mb-12">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-4">
@@ -152,6 +166,9 @@ const WordDashboard: React.FC<WordDashboardProps> = ({ currentUser, words, onWor
                 onAssign={handleAssignWord}
             />
         )}
+        {modalState?.type === 'unassigned' && (
+            <UnassignedStudentsModal words={words} onClose={() => setModalState(null)} />
+        )}
     </div>
   );
 };
@@ -176,11 +193,12 @@ const CrWordManagementModal: React.FC<{
     onClose: () => void;
     onSave: (updatedWord: Word) => void;
     onRelease: (wordId: number) => void;
-    onAssign: (wordId: number, studentId: string, studentName: string) => void;
+    onAssign: (wordId: number, studentId: string, studentName: string, studentRollNo: string) => void;
 }> = ({ word, onClose, onSave, onRelease, onAssign }) => {
     const [text, setText] = useState(word.text);
     const [studentId, setStudentId] = useState('');
     const [studentName, setStudentName] = useState('');
+    const [studentRollNo, setStudentRollNo] = useState('');
 
     const handleSaveText = () => {
         if (text.trim() && text.trim() !== word.text) {
@@ -189,10 +207,8 @@ const CrWordManagementModal: React.FC<{
     };
     
     const handleAssign = () => {
-        const trimmedId = studentId.trim();
-        const trimmedName = studentName.trim();
-        if (trimmedId && trimmedName) {
-            onAssign(word.id, trimmedId, trimmedName);
+        if (studentId.trim() && studentName.trim() && studentRollNo.trim()) {
+            onAssign(word.id, studentId, studentName, studentRollNo);
         }
     };
 
@@ -211,7 +227,10 @@ const CrWordManagementModal: React.FC<{
 
                 {word.takenBy ? (
                     <div>
-                        <p className="text-gray-400 mb-4 break-words">Currently taken by: <span className="font-bold text-teal-400">{word.takenBy.name} ({word.takenBy.id})</span></p>
+                        <p className="text-gray-400 mb-1">Currently taken by:</p>
+                        <div className="font-bold text-teal-400 mb-4 break-words">
+                           <p>{word.takenBy.name} (Roll: {word.takenBy.rollNo}, ID: {word.takenBy.id})</p>
+                        </div>
                         <button onClick={() => onRelease(word.id)} className="w-full px-4 py-2 font-bold text-white rounded-md bg-yellow-600 hover:bg-yellow-700">Release Word (Make Available)</button>
                     </div>
                 ) : (
@@ -229,10 +248,38 @@ const CrWordManagementModal: React.FC<{
                              <label htmlFor="studentNameAssign" className="block text-sm font-medium text-gray-300 mb-1">Student Name</label>
                              <input id="studentNameAssign" type="text" value={studentName} onChange={e => setStudentName(e.target.value)} className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md"/>
                         </div>
-                         <button onClick={handleAssign} disabled={!studentId.trim() || !studentName.trim()} className="w-full px-4 py-2 font-bold text-white rounded-md bg-teal-600 hover:bg-teal-700 disabled:bg-gray-500 disabled:cursor-not-allowed">Assign</button>
+                        <div>
+                             <label htmlFor="studentRollNoAssign" className="block text-sm font-medium text-gray-300 mb-1">Student Roll No</label>
+                             <input id="studentRollNoAssign" type="text" value={studentRollNo} onChange={e => setStudentRollNo(e.target.value)} className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md"/>
+                        </div>
+                         <button onClick={handleAssign} disabled={!studentId.trim() || !studentName.trim() || !studentRollNo.trim()} className="w-full px-4 py-2 font-bold text-white rounded-md bg-teal-600 hover:bg-teal-700 disabled:bg-gray-500 disabled:cursor-not-allowed">Assign</button>
                     </div>
                 </div>
             </div>
+        </BaseModal>
+    );
+};
+
+const UnassignedStudentsModal: React.FC<{ words: Word[]; onClose: () => void }> = ({ words, onClose }) => {
+    const unassignedStudents = useMemo(() => {
+        const assignedRollNumbers = new Set(words.filter(w => w.takenBy).map(w => w.takenBy!.rollNo));
+        return STUDENT_LIST.filter(student => !assignedRollNumbers.has(student.rollNo));
+    }, [words]);
+
+    return (
+        <BaseModal title="Students Without a Word" onClose={onClose} size="lg">
+            {unassignedStudents.length > 0 ? (
+                <ul className="space-y-2">
+                    {unassignedStudents.map(student => (
+                        <li key={student.rollNo} className="flex items-center justify-between bg-gray-700 p-3 rounded-md">
+                            <span className="font-semibold text-gray-200">{student.name}</span>
+                            <span className="text-sm text-gray-400">Roll No: {student.rollNo}</span>
+                        </li>
+                    ))}
+                </ul>
+            ) : (
+                <p className="text-center text-gray-400">All students have selected a word.</p>
+            )}
         </BaseModal>
     );
 };
