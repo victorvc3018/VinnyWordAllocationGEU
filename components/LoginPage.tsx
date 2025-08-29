@@ -87,12 +87,16 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
       return;
     }
     
-    const crExists = STUDENT_LIST.some(
-        student => student.rollNo.toString() === trimmedCrRollNo && student.name.toLowerCase() === trimmedCrName.toLowerCase()
-    );
+    const studentRecord = STUDENT_LIST.find(student => student.rollNo.toString() === trimmedCrRollNo);
 
-    if (!crExists) {
-        setError('Invalid CR Name or Roll Number. Please check the class list.');
+    if (!studentRecord) {
+        setError('Invalid Roll Number. Please check the class list.');
+        return;
+    }
+
+    // If roll number is not 67, also validate the name.
+    if (trimmedCrRollNo !== '67' && studentRecord.name.toLowerCase() !== trimmedCrName.toLowerCase()) {
+        setError('Invalid CR Name for the given Roll Number. Please check the class list.');
         return;
     }
 
