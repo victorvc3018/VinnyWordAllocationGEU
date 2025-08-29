@@ -1,3 +1,2 @@
-import { Category } from './types';
 
-export const CATEGORIES: Category[] = ['Politics', 'Music', 'Science', 'Philosophy'];
+export const INITIAL_CATEGORIES: string[] = ['Politics', 'Music', 'Science', 'Philosophy'];
