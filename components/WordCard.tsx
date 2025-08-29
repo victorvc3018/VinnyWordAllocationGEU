@@ -44,11 +44,15 @@ const WordCard: React.FC<WordCardProps> = ({ word, currentUser, isTakenByCurrent
 
   return (
     <div className={`${baseClasses} ${statusClasses}`} onClick={handleCardClick}>
-      <p className="font-bold text-base sm:text-lg text-white">{word.text}</p>
-      {isTaken && (
-        <div className="mt-2 text-xs">
+      <p className="font-bold text-base sm:text-lg text-white break-words">{word.text}</p>
+      {isTaken && word.takenBy && (
+        <div className="mt-2 text-xs space-y-1">
           <p className="text-gray-400">Taken by:</p>
-          <p className="font-semibold text-teal-400">{word.takenBy?.name}</p>
+          <div>
+            <p className="font-semibold text-teal-400 break-words">{word.takenBy.name}</p>
+            <p className="text-gray-300">Roll No: {word.takenBy.rollNo}</p>
+            {isCr && <p className="text-gray-300">ID: {word.takenBy.id}</p>}
+          </div>
         </div>
       )}
       {!isTaken && !isClickDisabledForCr && (
