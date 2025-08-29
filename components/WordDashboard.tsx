@@ -103,13 +103,30 @@ const WordDashboard: React.FC<WordDashboardProps> = ({ currentUser, words, onWor
     setModalState(null);
   };
 
-  const handleAssignWord = (wordId: number, studentId: string, studentName: string, studentRollNo: string) => {
-      if (!studentId.trim() || !studentName.trim() || !studentRollNo.trim()) return;
+  const handleAssignWord = (wordId: number, studentName: string, studentRollNo: string) => {
+      if (!studentName.trim() || !studentRollNo.trim()) return;
+      
+      const studentRollNoTrimmed = studentRollNo.trim();
+      const studentNameTrimmed = studentName.trim();
+
       const newWords = words.map(w => {
-          if (w.takenBy?.id === studentId.trim()) return {...w, takenBy: undefined};
+          // Clear any word taken by the same student (identified by roll number)
+          if (w.takenBy?.rollNo === studentRollNoTrimmed) {
+            return {...w, takenBy: undefined};
+          }
           return w;
       }).map(w => {
-          if (w.id === wordId) return {...w, takenBy: {id: studentId.trim(), name: studentName.trim(), rollNo: studentRollNo.trim()}};
+          // Assign the new word
+          if (w.id === wordId) {
+            return {
+              ...w, 
+              takenBy: {
+                id: `CR-Assigned-${studentRollNoTrimmed}`, 
+                name: studentNameTrimmed, 
+                rollNo: studentRollNoTrimmed
+              }
+            };
+          }
           return w;
       });
 
@@ -193,22 +210,24 @@ const CrWordManagementModal: React.FC<{
     onClose: () => void;
     onSave: (updatedWord: Word) => void;
     onRelease: (wordId: number) => void;
-    onAssign: (wordId: number, studentId: string, studentName: string, studentRollNo: string) => void;
+    onAssign: (wordId: number, studentName: string, studentRollNo: string) => void;
 }> = ({ word, onClose, onSave, onRelease, onAssign }) => {
     const [text, setText] = useState(word.text);
-    const [studentId, setStudentId] = useState('');
+    const [category, setCategory] = useState<Category>(word.category);
     const [studentName, setStudentName] = useState('');
     const [studentRollNo, setStudentRollNo] = useState('');
 
-    const handleSaveText = () => {
-        if (text.trim() && text.trim() !== word.text) {
-            onSave({ ...word, text: text.trim() });
+    const handleSaveChanges = () => {
+        const textChanged = text.trim() && text.trim() !== word.text;
+        const categoryChanged = category !== word.category;
+        if (textChanged || categoryChanged) {
+            onSave({ ...word, text: text.trim(), category });
         }
     };
     
     const handleAssign = () => {
-        if (studentId.trim() && studentName.trim() && studentRollNo.trim()) {
-            onAssign(word.id, studentId, studentName, studentRollNo);
+        if (studentName.trim() && studentRollNo.trim()) {
+            onAssign(word.id, studentName, studentRollNo);
         }
     };
 
@@ -216,10 +235,26 @@ const CrWordManagementModal: React.FC<{
         <BaseModal title={`Manage Word`} onClose={onClose}>
             <div className="space-y-6">
                 <div>
-                    <h4 className="font-semibold mb-2 text-gray-300">Edit Word Text</h4>
-                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center space-y-2 sm:space-y-0 sm:space-x-2">
-                        <input type="text" value={text} onChange={e => setText(e.target.value)} className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"/>
-                        <button onClick={handleSaveText} disabled={!text.trim() || text.trim() === word.text} className="px-4 py-2 font-bold text-white rounded-md bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-500 disabled:cursor-not-allowed flex-shrink-0">Save</button>
+                    <h4 className="font-semibold mb-2 text-gray-300">Edit Word Details</h4>
+                    <div className="space-y-4">
+                        <div>
+                            <label htmlFor="wordTextEdit" className="block text-sm font-medium text-gray-300 mb-1">Word Text</label>
+                            <input id="wordTextEdit" type="text" value={text} onChange={e => setText(e.target.value)} className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"/>
+                        </div>
+                        <div>
+                             <label htmlFor="wordCategoryEdit" className="block text-sm font-medium text-gray-300 mb-1">Category</label>
+                             <select
+                                id="wordCategoryEdit"
+                                value={category}
+                                onChange={e => setCategory(e.target.value as Category)}
+                                className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                             >
+                                {CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                             </select>
+                        </div>
+                        <button onClick={handleSaveChanges} disabled={(!text.trim() || text.trim() === word.text) && category === word.category} className="w-full px-4 py-2 font-bold text-white rounded-md bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-500 disabled:cursor-not-allowed">
+                            Save Changes
+                        </button>
                     </div>
                 </div>
 
@@ -234,16 +269,12 @@ const CrWordManagementModal: React.FC<{
                         <button onClick={() => onRelease(word.id)} className="w-full px-4 py-2 font-bold text-white rounded-md bg-yellow-600 hover:bg-yellow-700">Release Word (Make Available)</button>
                     </div>
                 ) : (
-                    <p className="text-gray-400">This word is currently available.</p>
+                    <p className="text-center text-gray-400">This word is currently available.</p>
                 )}
                 
                 <div className="border-t border-gray-700 pt-4">
                     <h4 className="font-semibold mb-2 text-gray-300">{word.takenBy ? 'Re-assign to a different student' : 'Assign to a student'}</h4>
                     <div className="space-y-4">
-                        <div>
-                             <label htmlFor="studentIdAssign" className="block text-sm font-medium text-gray-300 mb-1">Student ID</label>
-                             <input id="studentIdAssign" type="text" value={studentId} onChange={e => setStudentId(e.target.value)} className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md"/>
-                        </div>
                         <div>
                              <label htmlFor="studentNameAssign" className="block text-sm font-medium text-gray-300 mb-1">Student Name</label>
                              <input id="studentNameAssign" type="text" value={studentName} onChange={e => setStudentName(e.target.value)} className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md"/>
@@ -252,7 +283,7 @@ const CrWordManagementModal: React.FC<{
                              <label htmlFor="studentRollNoAssign" className="block text-sm font-medium text-gray-300 mb-1">Student Roll No</label>
                              <input id="studentRollNoAssign" type="text" value={studentRollNo} onChange={e => setStudentRollNo(e.target.value)} className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md"/>
                         </div>
-                         <button onClick={handleAssign} disabled={!studentId.trim() || !studentName.trim() || !studentRollNo.trim()} className="w-full px-4 py-2 font-bold text-white rounded-md bg-teal-600 hover:bg-teal-700 disabled:bg-gray-500 disabled:cursor-not-allowed">Assign</button>
+                         <button onClick={handleAssign} disabled={!studentName.trim() || !studentRollNo.trim()} className="w-full px-4 py-2 font-bold text-white rounded-md bg-teal-600 hover:bg-teal-700 disabled:bg-gray-500 disabled:cursor-not-allowed">Assign</button>
                     </div>
                 </div>
             </div>
