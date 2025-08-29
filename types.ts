@@ -10,7 +10,7 @@ export interface User {
   role: Role;
 }
 
-export type Category = 'Politics' | 'Music' | 'Science' | 'Philosophy';
+export type Category = string;
 
 export interface Word {
   id: number;
