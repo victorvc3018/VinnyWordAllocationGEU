@@ -1,6 +1,5 @@
 import React, { useState, useMemo } from 'react';
 import { Word, User, Role, Category } from '../types';
-import { CATEGORIES } from '../constants';
 import { STUDENT_LIST } from '../studentData';
 import WordCard from './WordCard';
 
@@ -8,6 +7,8 @@ interface WordDashboardProps {
   currentUser: User;
   words: Word[];
   onWordsUpdate: (newWords: Word[]) => void;
+  categories: Category[];
+  onCategoryNameChange: (oldCategory: Category, newCategory: Category) => void;
 }
 
 // --- SVG Icons defined within component ---
@@ -20,6 +21,12 @@ const PlusIcon: React.FC<{className?: string}> = ({ className }) => (
 const UsersIcon: React.FC<{className?: string}> = ({ className }) => (
     <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M15 21a6 6 0 00-9-5.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-3-5.197m-3 0a4 4 0 115.196 0M15 21a6 6 0 01-9-5.197" />
+    </svg>
+);
+
+const EditIcon: React.FC<{className?: string}> = ({ className }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.5L14.732 3.732z" />
     </svg>
 );
 
@@ -41,8 +48,10 @@ const BaseModal: React.FC<{ title: string; children: React.ReactNode; onClose: (
 
 
 // --- Main Dashboard Component ---
-const WordDashboard: React.FC<WordDashboardProps> = ({ currentUser, words, onWordsUpdate }) => {
+const WordDashboard: React.FC<WordDashboardProps> = ({ currentUser, words, onWordsUpdate, categories, onCategoryNameChange }) => {
   const [modalState, setModalState] = useState<{ type: 'add' | 'cr-manage' | 'unassigned'; data: any } | null>(null);
+  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+  const [newCategoryName, setNewCategoryName] = useState('');
 
   const wordsByCategory = useMemo(() => {
     return words.reduce((acc, word) => {
@@ -134,6 +143,15 @@ const WordDashboard: React.FC<WordDashboardProps> = ({ currentUser, words, onWor
       setModalState(null);
   };
 
+  const handleSaveCategoryName = (oldCategory: Category) => {
+    if (newCategoryName.trim() && newCategoryName.trim() !== oldCategory) {
+      onCategoryNameChange(oldCategory, newCategoryName);
+    }
+    setEditingCategory(null);
+    setNewCategoryName('');
+  };
+
+
   return (
     <div>
       <div className="flex justify-end mb-8">
@@ -145,10 +163,36 @@ const WordDashboard: React.FC<WordDashboardProps> = ({ currentUser, words, onWor
         )}
       </div>
 
-      {CATEGORIES.map(category => (
+      {categories.map(category => (
         <div key={category} className="mb-12">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-4">
-            <h2 className="text-2xl sm:text-3xl font-bold text-teal-400">{category}</h2>
+            <div className="flex items-center gap-3 group">
+              {editingCategory === category ? (
+                  <form onSubmit={(e) => { e.preventDefault(); handleSaveCategoryName(category); }} className="flex items-center gap-2">
+                      <input 
+                          type="text" 
+                          value={newCategoryName} 
+                          onChange={(e) => setNewCategoryName(e.target.value)} 
+                          onBlur={() => handleSaveCategoryName(category)}
+                          className="bg-gray-700 border border-gray-600 text-2xl sm:text-3xl font-bold text-teal-400 rounded-md px-2 py-1 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          autoFocus
+                      />
+                  </form>
+              ) : (
+                  <>
+                      <h2 className="text-2xl sm:text-3xl font-bold text-teal-400">{category}</h2>
+                      {currentUser.role === Role.CR && (
+                          <button 
+                              onClick={() => { setEditingCategory(category); setNewCategoryName(category); }} 
+                              className="text-gray-400 hover:text-white transition-colors opacity-0 group-hover:opacity-100"
+                              aria-label={`Edit category name for ${category}`}
+                          >
+                              <EditIcon className="w-5 h-5" />
+                          </button>
+                      )}
+                  </>
+              )}
+            </div>
             {currentUser.role === Role.CR && (
               <button onClick={() => setModalState({ type: 'add', data: category })} className="flex items-center space-x-2 px-3 py-2 sm:px-4 sm:py-2 bg-indigo-600 text-white font-semibold rounded-md hover:bg-indigo-700 transition-colors w-full sm:w-auto justify-center">
                 <PlusIcon className="w-5 h-5" />
@@ -176,7 +220,8 @@ const WordDashboard: React.FC<WordDashboardProps> = ({ currentUser, words, onWor
         )}
         {modalState?.type === 'cr-manage' && (
             <CrWordManagementModal 
-                word={modalState.data} 
+                word={modalState.data}
+                categories={categories}
                 onClose={() => setModalState(null)} 
                 onSave={handleSaveChanges}
                 onRelease={handleReleaseWord}
@@ -207,11 +252,12 @@ const AddWordModal: React.FC<{ category: Category; onAdd: (text: string, categor
 
 const CrWordManagementModal: React.FC<{ 
     word: Word; 
+    categories: Category[];
     onClose: () => void;
     onSave: (updatedWord: Word) => void;
     onRelease: (wordId: number) => void;
     onAssign: (wordId: number, studentName: string, studentRollNo: string) => void;
-}> = ({ word, onClose, onSave, onRelease, onAssign }) => {
+}> = ({ word, categories, onClose, onSave, onRelease, onAssign }) => {
     const [text, setText] = useState(word.text);
     const [category, setCategory] = useState<Category>(word.category);
     const [studentName, setStudentName] = useState('');
@@ -249,7 +295,7 @@ const CrWordManagementModal: React.FC<{
                                 onChange={e => setCategory(e.target.value as Category)}
                                 className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
                              >
-                                {CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                                {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
                              </select>
                         </div>
                         <button onClick={handleSaveChanges} disabled={(!text.trim() || text.trim() === word.text) && category === word.category} className="w-full px-4 py-2 font-bold text-white rounded-md bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-500 disabled:cursor-not-allowed">
