@@ -55,11 +55,6 @@ const WordCard: React.FC<WordCardProps> = ({ word, currentUser, isTakenByCurrent
           </div>
         </div>
       )}
-      {!isTaken && !isClickDisabledForCr && (
-        <div className="absolute inset-0 bg-black bg-opacity-20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-          <span className="text-teal-400 font-bold">Take Word</span>
-        </div>
-      )}
       
       {isCr && (
         <button
