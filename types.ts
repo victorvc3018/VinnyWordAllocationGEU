@@ -6,6 +6,7 @@ export enum Role {
 export interface User {
   id: string; // Student ID
   name: string;
+  rollNo: string;
   role: Role;
 }
 
@@ -18,5 +19,6 @@ export interface Word {
   takenBy?: {
     id: string; // Student ID
     name: string;
+    rollNo: string;
   };
 }
