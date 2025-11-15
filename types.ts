@@ -1,3 +1,4 @@
+
 export enum Role {
   Student = 'student',
   CR = 'cr',
@@ -10,15 +11,17 @@ export interface User {
   role: Role;
 }
 
-export type Category = string;
-
+// FIX: Added missing Word interface.
 export interface Word {
   id: number;
   text: string;
-  category: Category;
-  takenBy?: {
-    id: string; // Student ID
-    name: string;
-    rollNo: string;
-  };
+  category: string;
+  takenBy?: User;
+}
+
+export interface Submission {
+  studentRollNo: string;
+  studentName: string;
+  videoLink: string;
+  submittedAt: string; // ISO string
 }
