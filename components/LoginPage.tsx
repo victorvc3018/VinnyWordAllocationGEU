@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { User, Role } from '../types';
 import { STUDENT_LIST } from '../studentData';
@@ -115,7 +116,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-900 p-4">
       <div className="w-full max-w-md mx-auto bg-gray-800 shadow-2xl rounded-lg overflow-hidden">
-        <h1 className="text-2xl sm:text-3xl font-bold text-center py-6 bg-gray-900 text-indigo-400">Word Allocation Board</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold text-center py-6 bg-gray-900 text-indigo-400">Video Submission Portal</h1>
         <div className="flex">
           <button onClick={() => setActiveTab(Role.Student)} className={tabButtonClasses(activeTab === Role.Student)}>
             Student
