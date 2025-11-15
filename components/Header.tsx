@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { User, Role } from '../types';
 
@@ -12,7 +13,7 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout }) => {
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           <div className="flex-shrink-0">
-            <h1 className="text-lg sm:text-xl font-bold text-indigo-400">Word Allocation Board</h1>
+            <h1 className="text-lg sm:text-xl font-bold text-indigo-400">Video Submission Portal</h1>
           </div>
           <div className="flex items-center space-x-2 sm:space-x-4">
             <div className="text-right">
