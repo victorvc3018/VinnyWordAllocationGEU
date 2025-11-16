@@ -1,10 +1,9 @@
-
 import React, { useState, useEffect } from 'react';
-import { User, Role } from '../types';
-import { STUDENT_LIST } from '../studentData';
+import { User, Role, StudentRecord } from '../types';
 
 interface LoginPageProps {
   onLogin: (user: User) => void;
+  studentList: StudentRecord[];
 }
 
 const getTodaysPassword = () => {
@@ -15,7 +14,7 @@ const getTodaysPassword = () => {
   return `${day}${month}${year}`;
 };
 
-const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
+const LoginPage: React.FC<LoginPageProps> = ({ onLogin, studentList }) => {
   const [activeTab, setActiveTab] = useState<Role>(Role.Student);
   
   const [studentId, setStudentId] = useState('');
@@ -52,10 +51,15 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
       setError('Student ID, Full Name, and Roll Number are required.');
       return;
     }
+    
+    if (studentList.length === 0) {
+        setError('Student data is still loading, please wait a moment.');
+        return;
+    }
 
     // Validation logic: Skip name check only for roll number 67
     if (trimmedRollNo !== '67') {
-        const studentExists = STUDENT_LIST.some(
+        const studentExists = studentList.some(
             student => student.rollNo.toString() === trimmedRollNo && student.name.toLowerCase() === trimmedName.toLowerCase()
         );
         if (!studentExists) {
@@ -88,7 +92,12 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
       return;
     }
     
-    const studentRecord = STUDENT_LIST.find(student => student.rollNo.toString() === trimmedCrRollNo);
+    if (studentList.length === 0) {
+        setError('Student data is still loading, please wait a moment.');
+        return;
+    }
+    
+    const studentRecord = studentList.find(student => student.rollNo.toString() === trimmedCrRollNo);
 
     if (!studentRecord) {
         setError('Invalid Roll Number. Please check the class list.');
