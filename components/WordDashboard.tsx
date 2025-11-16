@@ -4,21 +4,21 @@ import { Submission, User, Role, StudentRecord } from '../types';
 interface SubmissionDashboardProps {
   currentUser: User;
   submissions: Submission[];
-  onSubmissionsUpdate: (newSubmissions: Submission[]) => void;
+  setSubmissions: (submissions: Submission[]) => void;
   isLocked: boolean;
-  onLockToggle: (isLocked: boolean) => void;
+  setIsLocked: (isLocked: boolean) => void;
   studentList: StudentRecord[];
-  onStudentListUpdate: (newStudentList: StudentRecord[]) => void;
+  setStudentList: (studentList: StudentRecord[]) => void;
 }
 
 const SubmissionDashboard: React.FC<SubmissionDashboardProps> = ({ 
     currentUser, 
     submissions, 
-    onSubmissionsUpdate,
+    setSubmissions,
     isLocked,
-    onLockToggle,
+    setIsLocked,
     studentList,
-    onStudentListUpdate
+    setStudentList
 }) => {
   const [videoLink, setVideoLink] = useState('');
   const [editingRollNo, setEditingRollNo] = useState<string | null>(null);
@@ -27,14 +27,14 @@ const SubmissionDashboard: React.FC<SubmissionDashboardProps> = ({
   const isCr = currentUser.role === Role.CR;
 
   const submissionsByRollNo = useMemo(() => {
-    return submissions.reduce((acc, submission) => {
+    return (submissions || []).reduce((acc, submission) => {
       acc[submission.studentRollNo] = submission;
       return acc;
     }, {} as Record<string, Submission>);
   }, [submissions]);
 
   const currentUserSubmission = useMemo(() => {
-    return submissions.find(s => s.studentRollNo === currentUser.rollNo);
+    return (submissions || []).find(s => s.studentRollNo === currentUser.rollNo);
   }, [submissions, currentUser.rollNo]);
 
   useEffect(() => {
@@ -56,23 +56,28 @@ const SubmissionDashboard: React.FC<SubmissionDashboardProps> = ({
       submittedAt: new Date().toISOString(),
     };
 
-    const otherSubmissions = submissions.filter(s => s.studentRollNo !== currentUser.rollNo);
-    onSubmissionsUpdate([...otherSubmissions, newSubmission]);
+    const existingIndex = submissions.findIndex(s => s.studentRollNo === currentUser.rollNo);
+    let newSubmissions;
+    if (existingIndex > -1) {
+        newSubmissions = [...submissions];
+        newSubmissions[existingIndex] = newSubmission;
+    } else {
+        newSubmissions = [...submissions, newSubmission];
+    }
+    setSubmissions(newSubmissions);
   };
 
   const handleStudentRemoveOwnSubmission = () => {
       if (isLocked) return;
       if (window.confirm('Are you sure you want to remove your submitted link?')) {
-          const updatedSubmissions = submissions.filter(s => s.studentRollNo !== currentUser.rollNo);
-          onSubmissionsUpdate(updatedSubmissions);
+          setSubmissions(submissions.filter(s => s.studentRollNo !== currentUser.rollNo));
           setVideoLink('');
       }
   }
   
   const handleCrRemoveSubmission = (rollNoToRemove: string) => {
       if (window.confirm('Are you sure you want to remove this submission?')) {
-          const updatedSubmissions = submissions.filter(s => s.studentRollNo !== rollNoToRemove);
-          onSubmissionsUpdate(updatedSubmissions);
+          setSubmissions(submissions.filter(s => s.studentRollNo !== rollNoToRemove));
       }
   };
 
@@ -88,39 +93,48 @@ const SubmissionDashboard: React.FC<SubmissionDashboardProps> = ({
   };
 
   const handleSaveEdit = (rollNo: string) => {
-    // Update student list (name)
+    const newName = editFormData.name.trim();
+    const newLink = editFormData.link.trim();
+
+    // 1. Update student name in the main list
     const updatedStudentList = studentList.map(student => 
-      student.rollNo === rollNo ? { ...student, name: editFormData.name.trim() } : student
+        student.rollNo === rollNo ? { ...student, name: newName } : student
     );
-    onStudentListUpdate(updatedStudentList);
-
-    // Update submissions list (link)
-    const existingSubmission = submissionsByRollNo[rollNo];
-    const linkTrimmed = editFormData.link.trim();
-
-    if (linkTrimmed && !existingSubmission) {
-      // Add new submission
-      const newSubmission: Submission = {
-        studentRollNo: rollNo,
-        studentName: editFormData.name.trim(),
-        videoLink: linkTrimmed,
-        submittedAt: new Date().toISOString()
-      };
-      onSubmissionsUpdate([...submissions, newSubmission]);
-    } else if (linkTrimmed && existingSubmission) {
-      // Update existing submission
-      const updatedSubmissions = submissions.map(s => 
-        s.studentRollNo === rollNo ? { ...s, videoLink: linkTrimmed, studentName: editFormData.name.trim() } : s
-      );
-      onSubmissionsUpdate(updatedSubmissions);
-    } else if (!linkTrimmed && existingSubmission) {
-      // Remove submission
-      const updatedSubmissions = submissions.filter(s => s.studentRollNo !== rollNo);
-      onSubmissionsUpdate(updatedSubmissions);
-    }
+    setStudentList(updatedStudentList);
     
+    // 2. Update submission (add, update, or remove)
+    const currentSubmissions = submissions || [];
+    const submissionIndex = currentSubmissions.findIndex(s => s.studentRollNo === rollNo);
+    const hasLink = newLink !== '';
+    let updatedSubmissions = [...currentSubmissions];
+
+    if (hasLink) {
+        const newOrUpdatedSubmission = {
+            studentRollNo: rollNo,
+            studentName: newName,
+            videoLink: newLink,
+            submittedAt: submissionIndex > -1 
+                ? currentSubmissions[submissionIndex].submittedAt 
+                : new Date().toISOString()
+        };
+        if (submissionIndex > -1) {
+            updatedSubmissions[submissionIndex] = newOrUpdatedSubmission;
+        } else {
+            updatedSubmissions.push(newOrUpdatedSubmission);
+        }
+    } else {
+        if (submissionIndex > -1) {
+            updatedSubmissions = currentSubmissions.filter(s => s.studentRollNo !== rollNo);
+        }
+    }
+    setSubmissions(updatedSubmissions);
+
     handleCancelEdit();
   };
+
+  const handleToggleLock = () => {
+      setIsLocked(!isLocked);
+  }
 
   const handleExportToCSV = () => {
     const headers = ['Roll No', 'Name', 'Status', 'Link', 'Submitted At'];
@@ -164,9 +178,8 @@ const SubmissionDashboard: React.FC<SubmissionDashboardProps> = ({
     }
   };
 
-
-  const submittedCount = Object.keys(submissionsByRollNo).length;
-  const totalStudents = studentList.length;
+  const submittedCount = (submissions || []).length;
+  const totalStudents = (studentList || []).length;
   const submissionPercentage = totalStudents > 0 ? (submittedCount / totalStudents) * 100 : 0;
 
   return (
@@ -180,7 +193,7 @@ const SubmissionDashboard: React.FC<SubmissionDashboardProps> = ({
                     Submissions are {isLocked ? 'LOCKED' : 'OPEN'}
                 </span>
                 <button 
-                    onClick={() => onLockToggle(!isLocked)}
+                    onClick={handleToggleLock}
                     className={`px-4 py-2 font-bold text-white rounded-md transition-colors ${isLocked ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'}`}
                 >
                     {isLocked ? 'Unlock' : 'Lock'} All
@@ -245,7 +258,7 @@ const SubmissionDashboard: React.FC<SubmissionDashboardProps> = ({
         <div className="p-4 sm:p-6">
             <h3 className="text-lg font-semibold text-white mb-4">Student Submissions</h3>
             <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-2">
-                {studentList.sort((a, b) => parseInt(a.rollNo) - parseInt(b.rollNo)).map((student) => {
+                {(studentList || []).sort((a, b) => parseInt(a.rollNo) - parseInt(b.rollNo)).map((student) => {
                     const submission = submissionsByRollNo[student.rollNo];
                     const isEditing = editingRollNo === student.rollNo;
 
