@@ -1,3 +1,4 @@
+
 export interface StudentRecord {
   rollNo: string;
   name: string;
@@ -85,4 +86,12 @@ export const STUDENT_LIST: StudentRecord[] = [
   { rollNo: '79', name: 'REUBEN ISRAEL KANU' },
   { rollNo: '80', name: 'JANE NYATOCH GATWECH GAI' },
   { rollNo: '81', name: 'parth pharasi' },
+  { rollNo: '82', name: 'Olufemi E During' },
+  { rollNo: '83', name: 'Lung Tun Aung' },
+  { rollNo: '84', name: 'Vanessa Moio' },
+  { rollNo: '85', name: 'Siwakhile Lunathi Mzizi' },
+  { rollNo: '86', name: 'Redda Dodum' },
+  { rollNo: '87', name: 'Edwin Demo' },
+  { rollNo: '88', name: '[Empty Slot]' },
+  { rollNo: '89', name: '[Empty Slot]' },
 ];
