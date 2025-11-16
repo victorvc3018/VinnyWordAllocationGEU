@@ -1,4 +1,3 @@
-
 export enum Role {
   Student = 'student',
   CR = 'cr',
@@ -23,10 +22,9 @@ export interface StudentRecord {
   name: string;
 }
 
-// Added back to resolve build errors from leftover components
-export interface Word {
-  id: number;
-  text: string;
-  category: string;
-  takenBy?: User;
+// This interface defines the structure of our single document in Firestore
+export interface AppData {
+  submissions: Submission[];
+  studentList: StudentRecord[];
+  isLocked: boolean;
 }
