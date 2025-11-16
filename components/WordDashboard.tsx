@@ -1,16 +1,30 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Submission, User, Role } from '../types';
-import { STUDENT_LIST } from '../studentData';
+import { Submission, User, Role, StudentRecord } from '../types';
 
 interface SubmissionDashboardProps {
   currentUser: User;
   submissions: Submission[];
   onSubmissionsUpdate: (newSubmissions: Submission[]) => void;
+  isLocked: boolean;
+  onLockToggle: (isLocked: boolean) => void;
+  studentList: StudentRecord[];
+  onStudentListUpdate: (newStudentList: StudentRecord[]) => void;
 }
 
-const SubmissionDashboard: React.FC<SubmissionDashboardProps> = ({ currentUser, submissions, onSubmissionsUpdate }) => {
+const SubmissionDashboard: React.FC<SubmissionDashboardProps> = ({ 
+    currentUser, 
+    submissions, 
+    onSubmissionsUpdate,
+    isLocked,
+    onLockToggle,
+    studentList,
+    onStudentListUpdate
+}) => {
   const [videoLink, setVideoLink] = useState('');
+  const [editingRollNo, setEditingRollNo] = useState<string | null>(null);
+  const [editFormData, setEditFormData] = useState({ name: '', link: '' });
+
   const isCr = currentUser.role === Role.CR;
 
   const submissionsByRollNo = useMemo(() => {
@@ -34,7 +48,7 @@ const SubmissionDashboard: React.FC<SubmissionDashboardProps> = ({ currentUser, 
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!videoLink.trim()) return;
+    if (!videoLink.trim() || isLocked) return;
 
     const newSubmission: Submission = {
       studentRollNo: currentUser.rollNo,
@@ -43,40 +57,122 @@ const SubmissionDashboard: React.FC<SubmissionDashboardProps> = ({ currentUser, 
       submittedAt: new Date().toISOString(),
     };
 
-    // Remove old submission if it exists, then add the new one
     const otherSubmissions = submissions.filter(s => s.studentRollNo !== currentUser.rollNo);
     onSubmissionsUpdate([...otherSubmissions, newSubmission]);
   };
+
+  const handleStudentRemoveOwnSubmission = () => {
+      if (isLocked) return;
+      if (window.confirm('Are you sure you want to remove your submitted link?')) {
+          const updatedSubmissions = submissions.filter(s => s.studentRollNo !== currentUser.rollNo);
+          onSubmissionsUpdate(updatedSubmissions);
+          setVideoLink('');
+      }
+  }
   
-  const handleRemove = (rollNoToRemove: string) => {
+  const handleCrRemoveSubmission = (rollNoToRemove: string) => {
       if (window.confirm('Are you sure you want to remove this submission?')) {
           const updatedSubmissions = submissions.filter(s => s.studentRollNo !== rollNoToRemove);
           onSubmissionsUpdate(updatedSubmissions);
       }
   };
 
+  const handleEditClick = (student: StudentRecord) => {
+    setEditingRollNo(student.rollNo);
+    const submission = submissionsByRollNo[student.rollNo];
+    setEditFormData({ name: student.name, link: submission ? submission.videoLink : '' });
+  };
+
+  const handleCancelEdit = () => {
+    setEditingRollNo(null);
+    setEditFormData({ name: '', link: '' });
+  };
+
+  const handleSaveEdit = (rollNo: string) => {
+    // Update student list (name)
+    const updatedStudentList = studentList.map(student => 
+      student.rollNo === rollNo ? { ...student, name: editFormData.name.trim() } : student
+    );
+    onStudentListUpdate(updatedStudentList);
+
+    // Update submissions list (link)
+    const existingSubmission = submissionsByRollNo[rollNo];
+    const linkTrimmed = editFormData.link.trim();
+
+    if (linkTrimmed && !existingSubmission) {
+      // Add new submission
+      const newSubmission: Submission = {
+        studentRollNo: rollNo,
+        studentName: editFormData.name.trim(),
+        videoLink: linkTrimmed,
+        submittedAt: new Date().toISOString()
+      };
+      onSubmissionsUpdate([...submissions, newSubmission]);
+    } else if (linkTrimmed && existingSubmission) {
+      // Update existing submission
+      const updatedSubmissions = submissions.map(s => 
+        s.studentRollNo === rollNo ? { ...s, videoLink: linkTrimmed, studentName: editFormData.name.trim() } : s
+      );
+      onSubmissionsUpdate(updatedSubmissions);
+    } else if (!linkTrimmed && existingSubmission) {
+      // Remove submission
+      const updatedSubmissions = submissions.filter(s => s.studentRollNo !== rollNo);
+      onSubmissionsUpdate(updatedSubmissions);
+    }
+    
+    handleCancelEdit();
+  };
+
+
   const submittedCount = Object.keys(submissionsByRollNo).length;
-  const totalStudents = STUDENT_LIST.length;
+  const totalStudents = studentList.length;
   const submissionPercentage = totalStudents > 0 ? (submittedCount / totalStudents) * 100 : 0;
 
   return (
     <div className="space-y-8">
+      {/* CR Controls */}
+      {isCr && (
+        <div className="bg-gray-800 p-6 rounded-lg shadow-lg flex justify-between items-center">
+            <h2 className="text-xl font-bold text-amber-400">Admin Controls</h2>
+            <div className="flex items-center gap-4">
+                <span className={`font-semibold ${isLocked ? 'text-red-500' : 'text-green-500'}`}>
+                    Submissions are {isLocked ? 'LOCKED' : 'OPEN'}
+                </span>
+                <button 
+                    onClick={() => onLockToggle(!isLocked)}
+                    className={`px-6 py-2 font-bold text-white rounded-md transition-colors ${isLocked ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'}`}
+                >
+                    {isLocked ? 'Unlock' : 'Lock'} All
+                </button>
+            </div>
+        </div>
+      )}
+
       {/* Submission Form for Students */}
       {!isCr && (
         <div className="bg-gray-800 p-6 rounded-lg shadow-lg">
           <h2 className="text-xl font-bold text-indigo-400 mb-4">Submit Your Video Link</h2>
-          <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-4">
+          {isLocked && <p className="text-center text-yellow-400 mb-4 font-semibold">Submissions are currently locked by the CR. You cannot make changes.</p>}
+          <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-4 items-center">
             <input
               type="url"
               placeholder="https://example.com/your-video"
               value={videoLink}
               onChange={(e) => setVideoLink(e.target.value)}
-              className="flex-grow px-4 py-2 bg-gray-700 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="flex-grow w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
               required
+              disabled={isLocked}
             />
-            <button type="submit" className="px-6 py-2 font-bold text-white rounded-md bg-indigo-600 hover:bg-indigo-700 transition-colors">
-              {currentUserSubmission ? 'Update Link' : 'Submit Link'}
-            </button>
+            <div className="flex gap-2 w-full sm:w-auto">
+                <button type="submit" className="flex-grow px-6 py-2 font-bold text-white rounded-md bg-indigo-600 hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed" disabled={isLocked}>
+                    {currentUserSubmission ? 'Update' : 'Submit'}
+                </button>
+                {currentUserSubmission && (
+                    <button type="button" onClick={handleStudentRemoveOwnSubmission} className="px-4 py-2 font-bold text-white rounded-md bg-red-600 hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed" disabled={isLocked}>
+                        Remove
+                    </button>
+                )}
+            </div>
           </form>
           {currentUserSubmission && (
                <p className="text-xs text-gray-400 mt-2">
@@ -101,33 +197,67 @@ const SubmissionDashboard: React.FC<SubmissionDashboardProps> = ({ currentUser, 
       <div className="bg-gray-800 rounded-lg shadow-lg overflow-hidden">
         <div className="p-4 sm:p-6">
             <h3 className="text-lg font-semibold text-white mb-4">Student Submissions</h3>
-            <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-2">
-                {STUDENT_LIST.map((student) => {
-                const submission = submissionsByRollNo[student.rollNo];
-                return (
-                    <div key={student.rollNo} className="grid grid-cols-12 gap-2 items-center bg-gray-700 p-3 rounded-md text-sm">
-                        <span className="col-span-1 font-mono text-gray-400">{student.rollNo}</span>
-                        <span className="col-span-12 sm:col-span-4 font-semibold text-gray-200 truncate">{student.name}</span>
-                        <div className="col-span-12 sm:col-span-6 truncate">
-                            {submission ? (
-                                <a href={submission.videoLink} target="_blank" rel="noopener noreferrer" className="text-teal-400 hover:underline break-all">
-                                    {submission.videoLink}
-                                </a>
-                            ) : (
-                                <span className="text-yellow-400 font-semibold">Not Submitted</span>
+            <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-2">
+                {studentList.sort((a, b) => parseInt(a.rollNo) - parseInt(b.rollNo)).map((student) => {
+                    const submission = submissionsByRollNo[student.rollNo];
+                    const isEditing = editingRollNo === student.rollNo;
+
+                    if (isEditing) {
+                        return (
+                             <div key={student.rollNo} className="bg-gray-600 p-3 rounded-md text-sm space-y-3">
+                                <div className="grid grid-cols-12 gap-2 items-center">
+                                    <span className="col-span-1 font-mono text-gray-400">{student.rollNo}</span>
+                                    <input 
+                                        type="text" 
+                                        value={editFormData.name} 
+                                        onChange={e => setEditFormData({...editFormData, name: e.target.value})}
+                                        className="col-span-11 sm:col-span-5 px-2 py-1 bg-gray-800 border border-gray-500 rounded-md"
+                                    />
+                                    <input 
+                                        type="url" 
+                                        value={editFormData.link}
+                                        placeholder="No link submitted"
+                                        onChange={e => setEditFormData({...editFormData, link: e.target.value})}
+                                        className="col-span-12 sm:col-span-6 px-2 py-1 bg-gray-800 border border-gray-500 rounded-md"
+                                    />
+                                </div>
+                                <div className="flex justify-end gap-2">
+                                    <button onClick={handleCancelEdit} className="px-3 py-1 bg-gray-500 hover:bg-gray-400 text-white font-semibold rounded-md">Cancel</button>
+                                    <button onClick={() => handleSaveEdit(student.rollNo)} className="px-3 py-1 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-md">Save</button>
+                                </div>
+                             </div>
+                        )
+                    }
+
+                    return (
+                        <div key={student.rollNo} className="grid grid-cols-12 gap-2 items-center bg-gray-700 p-3 rounded-md text-sm">
+                            <span className="col-span-1 font-mono text-gray-400">{student.rollNo}</span>
+                            <span className="col-span-12 sm:col-span-4 font-semibold text-gray-200 truncate">{student.name}</span>
+                            <div className="col-span-12 sm:col-span-5 truncate">
+                                {submission ? (
+                                    <a href={submission.videoLink} target="_blank" rel="noopener noreferrer" className="text-teal-400 hover:underline break-all">
+                                        {submission.videoLink}
+                                    </a>
+                                ) : (
+                                    <span className="text-yellow-400 font-semibold">Not Submitted</span>
+                                )}
+                            </div>
+                            {isCr && (
+                                <div className="col-span-12 sm:col-span-2 flex justify-end items-center gap-2">
+                                    <button onClick={() => handleEditClick(student)} className="p-1.5 text-gray-400 hover:text-white hover:bg-indigo-600 rounded-full transition-colors">
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z" /><path fillRule="evenodd" d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" clipRule="evenodd" /></svg>
+                                    </button>
+                                    {submission && (
+                                        <button onClick={() => handleCrRemoveSubmission(student.rollNo)} className="p-1.5 text-gray-400 hover:text-white hover:bg-red-600 rounded-full transition-colors">
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                            </svg>
+                                        </button>
+                                    )}
+                                </div>
                             )}
                         </div>
-                        {isCr && submission && (
-                             <div className="col-span-12 sm:col-span-1 flex justify-end">
-                                <button onClick={() => handleRemove(student.rollNo)} className="p-1.5 text-gray-400 hover:text-white hover:bg-red-600 rounded-full transition-colors">
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                    </svg>
-                                </button>
-                            </div>
-                        )}
-                    </div>
-                );
+                    );
                 })}
             </div>
         </div>
