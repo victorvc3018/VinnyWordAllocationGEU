@@ -1,7 +1,8 @@
 
 import { useCallback } from 'react';
 import { useLocalStorage } from './hooks/useLocalStorage';
-import { User, Submission } from './types';
+import { User, Submission, StudentRecord } from './types';
+import { STUDENT_LIST } from './studentData';
 import LoginPage from './components/LoginPage';
 import SubmissionDashboard from './components/WordDashboard';
 import Header from './components/Header';
@@ -9,6 +10,9 @@ import Header from './components/Header';
 function App() {
   const [currentUser, setCurrentUser] = useLocalStorage<User | null>('word-app-user', null);
   const [submissions, setSubmissions] = useLocalStorage<Submission[]>('video-app-submissions', []);
+  const [isLocked, setIsLocked] = useLocalStorage<boolean>('video-app-locked', false);
+  const [studentList, setStudentList] = useLocalStorage<StudentRecord[]>('video-app-student-list', STUDENT_LIST);
+
 
   const handleLogin = (user: User) => {
     setCurrentUser(user);
@@ -22,6 +26,10 @@ function App() {
     setSubmissions(newSubmissions);
   }, [setSubmissions]);
 
+  const updateStudentList = useCallback((newStudentList: StudentRecord[]) => {
+    setStudentList(newStudentList);
+  }, [setStudentList]);
+
   return (
     <div className="min-h-screen bg-gray-900 text-gray-100 font-sans">
       {!currentUser ? (
@@ -33,7 +41,11 @@ function App() {
             <SubmissionDashboard 
               currentUser={currentUser} 
               submissions={submissions} 
-              onSubmissionsUpdate={updateSubmissions} 
+              onSubmissionsUpdate={updateSubmissions}
+              isLocked={isLocked}
+              onLockToggle={setIsLocked}
+              studentList={studentList}
+              onStudentListUpdate={updateStudentList}
             />
           </main>
         </>
