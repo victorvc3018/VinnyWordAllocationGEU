@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { Submission, User, Role, StudentRecord } from '../types';
 
@@ -123,6 +122,48 @@ const SubmissionDashboard: React.FC<SubmissionDashboardProps> = ({
     handleCancelEdit();
   };
 
+  const handleExportToCSV = () => {
+    const headers = ['Roll No', 'Name', 'Status', 'Link', 'Submitted At'];
+    
+    const sortedStudentList = [...studentList].sort((a, b) => parseInt(a.rollNo) - parseInt(b.rollNo));
+
+    const rows = sortedStudentList.map(student => {
+        const submission = submissionsByRollNo[student.rollNo];
+        return [
+            student.rollNo,
+            student.name,
+            submission ? 'Submitted' : 'Not Submitted',
+            submission ? submission.videoLink : '',
+            submission ? new Date(submission.submittedAt).toLocaleString() : ''
+        ];
+    });
+
+    const escapeCell = (cell: string | number) => {
+        const strCell = String(cell);
+        if (strCell.includes(',') || strCell.includes('"') || strCell.includes('\n')) {
+            return `"${strCell.replace(/"/g, '""')}"`;
+        }
+        return strCell;
+    };
+
+    let csvContent = headers.map(escapeCell).join(',') + '\r\n';
+    rows.forEach(rowArray => {
+        csvContent += rowArray.map(escapeCell).join(',') + '\r\n';
+    });
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    if (link.download !== undefined) {
+        const url = URL.createObjectURL(blob);
+        link.setAttribute("href", url);
+        link.setAttribute("download", "video_submissions.csv");
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+  };
+
 
   const submittedCount = Object.keys(submissionsByRollNo).length;
   const totalStudents = studentList.length;
@@ -132,17 +173,23 @@ const SubmissionDashboard: React.FC<SubmissionDashboardProps> = ({
     <div className="space-y-8">
       {/* CR Controls */}
       {isCr && (
-        <div className="bg-gray-800 p-6 rounded-lg shadow-lg flex justify-between items-center">
+        <div className="bg-gray-800 p-6 rounded-lg shadow-lg flex flex-wrap justify-between items-center gap-4">
             <h2 className="text-xl font-bold text-amber-400">Admin Controls</h2>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-4 flex-wrap">
                 <span className={`font-semibold ${isLocked ? 'text-red-500' : 'text-green-500'}`}>
                     Submissions are {isLocked ? 'LOCKED' : 'OPEN'}
                 </span>
                 <button 
                     onClick={() => onLockToggle(!isLocked)}
-                    className={`px-6 py-2 font-bold text-white rounded-md transition-colors ${isLocked ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'}`}
+                    className={`px-4 py-2 font-bold text-white rounded-md transition-colors ${isLocked ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'}`}
                 >
                     {isLocked ? 'Unlock' : 'Lock'} All
+                </button>
+                 <button 
+                    onClick={handleExportToCSV}
+                    className="px-4 py-2 font-bold text-white rounded-md bg-blue-600 hover:bg-blue-700 transition-colors"
+                >
+                    Export to CSV
                 </button>
             </div>
         </div>
