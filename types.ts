@@ -22,3 +22,11 @@ export interface StudentRecord {
   rollNo: string;
   name: string;
 }
+
+// Added back to resolve build errors from leftover components
+export interface Word {
+  id: number;
+  text: string;
+  category: string;
+  takenBy?: User;
+}
